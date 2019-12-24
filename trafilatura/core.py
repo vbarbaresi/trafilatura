@@ -42,7 +42,7 @@ MANUALLY_CLEANED, MIN_DUPLCHECK_SIZE, MIN_EXTRACTED_SIZE, MIN_EXTRACTED_COMM_SIZ
 from .utils import load_html, sanitize, textfilter, trim, txttocsv
 from .xml import check_tei, validate_tei, write_teitree, xmltotxt
 from .xpaths import BODY_XPATH, COMMENTS_XPATH, COMMENTS_DISCARD_XPATH, DISCARD_XPATH
-
+from .lru import LRUCache
 ## INIT
 
 if LANGID_FLAG is True:
@@ -53,10 +53,8 @@ LOGGER = logging.getLogger(__name__)
 COMMENTS_BLACKLIST = ('( Abmelden / Ändern )')
 
 # counters
-if LRU_FLAG is True:
-    LRU_TEST = LRU(LRU_SIZE)
-else:
-    LRU_TEST = defaultdict(int)
+
+LRU_TEST = LRUCache(maxsize=128)
 # tree_cache = dict()
 
 # justext
@@ -128,13 +126,12 @@ def cache(body):
     for element in body:
         # teststring = ' '.join(element.itertext()).encode('utf-8')
         teststring = element.text
-        if LRU_FLAG is True:
-            if LRU_TEST.has_key(teststring) is True:
-                LRU_TEST[teststring] += 1
-            else:
-                LRU_TEST[teststring] = 1
+        if teststring in LRU_TEST.cache:
+            val = LRU_TEST.get(teststring)
+            LRU_TEST.put(teststring, val + 1)
         else:
-            LRU_TEST[teststring] += 1
+            LRU_TEST.put(teststring, 1)
+
 
 
 def duplicate_test(element, justext_switch=False):
@@ -146,14 +143,9 @@ def duplicate_test(element, justext_switch=False):
     else:
         teststring = element.text
     if len(teststring) > MIN_DUPLCHECK_SIZE:
-        if LRU_FLAG is True:
-            if LRU_TEST.has_key(teststring) is True and LRU_TEST[teststring] > 2:
-                # LRU_TEST[teststring] += 1
-                return True
-        else:
-            if teststring in LRU_TEST and LRU_TEST[teststring] > 2:
-                return True
+        if LRU_TEST.has_key(teststring) is True and LRU_TEST.get(teststring) > 2:
             # LRU_TEST[teststring] += 1
+            return True
     return False
 
 
@@ -700,9 +692,8 @@ def extract(filecontent, url=None, record_id='0001', no_fallback=False, include_
             LOGGER.warning('package not installed, cannot perform language identification')
 
     # cache elements
-    if LRU_FLAG is True:
-        cache(postbody)
-        cache(commentsbody)
+    cache(postbody)
+    cache(commentsbody)
     #del tree_cache[cleaned_tree]
 
     # XML (TEI) steps
@@ -740,10 +731,7 @@ def extract(filecontent, url=None, record_id='0001', no_fallback=False, include_
 
     # check duplicates at body level
     teststring = ' '.join(postbody.itertext()).encode('utf-8')
-    if LRU_FLAG is True and LRU_TEST.has_key(teststring) is True:
-        # LRU_TEST[teststring] = 1
-        return None
-    if LRU_FLAG is False and teststring in LRU_TEST:
+    if LRU_TEST.has_key(teststring) is True:
         # LRU_TEST[teststring] = 1
         return None
 
