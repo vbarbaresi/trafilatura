@@ -83,3 +83,4 @@ class LRUCache(object):
     def clear(self):
         self.cache.clear()
         self.root[:] = [self.root, self.root, None, None]
+        self.full = False
