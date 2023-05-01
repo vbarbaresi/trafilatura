@@ -92,7 +92,7 @@ setup(
         'justext >= 3.0.0',
         'lxml >= 4.6.3',
         'readability-lxml >= 0.8.1',
-        'urllib3>=1.25,<2',
+        'urllib3>=1.25,<3',
     ],
     extras_require=extras,
     entry_points = {
